@@ -143,7 +143,7 @@ class DeepStreamOutput(nn.Module):
         )
 
 
-def yolov8_seg_export(weights, device, fuse=True):
+def yolo11_seg_export(weights, device, fuse=True):
     model = YOLO(weights)
     model = deepcopy(model.model).to(device)
     for p in model.parameters():
@@ -176,10 +176,10 @@ def main(args):
 
     print(f"\nStarting: {args.weights}")
 
-    print("Opening YOLOv8-Seg model")
+    print("Opening YOLO11-Seg model")
 
     device = torch.device("cpu")
-    model = yolov8_seg_export(args.weights, device)
+    model = yolo11_seg_export(args.weights, device)
 
     if len(model.names.keys()) > 0:
         print("Creating labels.txt file")
@@ -230,7 +230,7 @@ def main(args):
 
 def parse_args():
     import argparse
-    parser = argparse.ArgumentParser(description="DeepStream YOLOv8-Seg conversion")
+    parser = argparse.ArgumentParser(description="DeepStream YOLO11-Seg conversion")
     parser.add_argument("-w", "--weights", required=True, type=str, help="Input weights (.pt) file path (required)")
     parser.add_argument("-s", "--size", nargs="+", type=int, default=[640], help="Inference size [H,W] (default [640])")
     parser.add_argument("--opset", type=int, default=17, help="ONNX opset version")

@@ -1,101 +1,79 @@
-/*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
- * Edited by Marcos Luciano
- * https://www.github.com/marcoslucianops
- */
-
+#include <cassert>
+#include <algorithm>
+#include <iostream>
 #include <cstring>
 
 #include "nvdsinfer_custom_impl.h"
-
-#include "utils.h"
-
-#define NMS_THRESH 0.45;
 
 extern "C" bool
 NvDsInferParseYoloSeg(std::vector<NvDsInferLayerInfo> const& outputLayersInfo, NvDsInferNetworkInfo const& networkInfo,
     NvDsInferParseDetectionParams const& detectionParams, std::vector<NvDsInferInstanceMaskInfo>& objectList);
 
-static void
-addSegProposal(const float* masks, const uint& maskWidth, const uint& maskHeight, const uint& b,
-    NvDsInferInstanceMaskInfo& obj)
+static float
+clamp(float val, float minVal, float maxVal)
 {
-  obj.mask = new float[maskHeight * maskWidth];
-  obj.mask_width = maskWidth;
-  obj.mask_height = maskHeight;
-  obj.mask_size = sizeof(float) * maskHeight * maskWidth;
-
-  const float* data = reinterpret_cast<const float*>(masks + b * maskHeight * maskWidth);
-  memcpy(obj.mask, data, sizeof(float) * maskHeight * maskWidth);
+  assert(minVal <= maxVal);
+  return std::min(maxVal, std::max(minVal, val));
 }
 
 static void
-addBBoxProposal(const float& bx1, const float& by1, const float& bx2, const float& by2, const uint& netW, const uint& netH,
-    const int& maxIndex, const float& maxProb, NvDsInferInstanceMaskInfo& obj)
+addSegProposal(const float* output, size_t channelsSize, uint netW, uint netH, size_t n, NvDsInferInstanceMaskInfo& b)
 {
-  float x1 = clamp(bx1, 0, netW);
-  float y1 = clamp(by1, 0, netH);
-  float x2 = clamp(bx2, 0, netW);
-  float y2 = clamp(by2, 0, netH);
+  size_t maskSize = channelsSize - 6;
+  b.mask = new float[maskSize];
+  b.mask_width = netW / 4;
+  b.mask_height = netH / 4;
+  b.mask_size = sizeof(float) * maskSize;
+  std::memcpy(b.mask, output + n * channelsSize + 6, sizeof(float) * maskSize);
+}
 
-  obj.left = x1;
-  obj.width = clamp(x2 - x1, 0, netW);
-  obj.top = y1;
-  obj.height = clamp(y2 - y1, 0, netH);
+static void
+addBBoxProposal(float x1, float y1, float x2, float y2, uint netW, uint netH, int maxIndex, float maxProb,
+    NvDsInferInstanceMaskInfo& b)
+{
+  x1 = clamp(x1, 0, netW);
+  y1 = clamp(y1, 0, netH);
+  x2 = clamp(x2, 0, netW);
+  y2 = clamp(y2, 0, netH);
 
-  if (obj.width < 1 || obj.height < 1) {
+  b.left = x1;
+  b.width = clamp(x2 - x1, 0, netW);
+  b.top = y1;
+  b.height = clamp(y2 - y1, 0, netH);
+
+  if (b.width < 1 || b.height < 1) {
       return;
   }
 
-  obj.detectionConfidence = maxProb;
-  obj.classId = maxIndex;
+  b.detectionConfidence = maxProb;
+  b.classId = maxIndex;
 }
 
 static std::vector<NvDsInferInstanceMaskInfo>
-decodeTensorYoloSeg(const float* boxes, const float* scores, const float* classes, const float* masks,
-    const uint& outputSize, const uint& maskWidth, const uint& maskHeight, const uint& netW, const uint& netH,
+decodeTensorYoloSeg(const float* output, size_t outputSize, size_t channelsSize, uint netW, uint netH,
     const std::vector<float>& preclusterThreshold)
 {
   std::vector<NvDsInferInstanceMaskInfo> objects;
 
-  for (uint b = 0; b < outputSize; ++b) {
-    float maxProb = scores[b];
-    int maxIndex = (int) classes[b];
+  for (size_t n = 0; n < outputSize; ++n) {
+    float maxProb = output[n * channelsSize + 4];
+    int maxIndex = (int) output[n * channelsSize + 5];
 
     if (maxProb < preclusterThreshold[maxIndex]) {
       continue;
     }
 
-    float bx1 = boxes[b * 4 + 0];
-    float by1 = boxes[b * 4 + 1];
-    float bx2 = boxes[b * 4 + 2];
-    float by2 = boxes[b * 4 + 3];
+    float x1 = output[n * channelsSize + 0];
+    float y1 = output[n * channelsSize + 1];
+    float x2 = output[n * channelsSize + 2];
+    float y2 = output[n * channelsSize + 3];
 
-    NvDsInferInstanceMaskInfo obj;
+    NvDsInferInstanceMaskInfo b;
 
-    addBBoxProposal(bx1, by1, bx2, by2, netW, netH, maxIndex, maxProb, obj);
-    addSegProposal(masks, maskWidth, maskHeight, b, obj);
+    addBBoxProposal(x1, y1, x2, y2, netW, netH, maxIndex, maxProb, b);
+    addSegProposal(output, channelsSize, netW, netH, n, b);
 
-    objects.push_back(obj);
+    objects.push_back(b);
   }
 
   return objects;
@@ -107,22 +85,17 @@ NvDsInferParseCustomYoloSeg(std::vector<NvDsInferLayerInfo> const& outputLayersI
     std::vector<NvDsInferInstanceMaskInfo>& objectList)
 {
   if (outputLayersInfo.empty()) {
-    std::cerr << "ERROR: Could not find output layer in bbox parsing" << std::endl;
+    std::cerr << "ERROR - Could not find output layer" << std::endl;
     return false;
   }
 
-  const NvDsInferLayerInfo& boxes = outputLayersInfo[0];
-  const NvDsInferLayerInfo& scores = outputLayersInfo[1];
-  const NvDsInferLayerInfo& classes = outputLayersInfo[2];
-  const NvDsInferLayerInfo& masks = outputLayersInfo[3];
+  const NvDsInferLayerInfo& output = outputLayersInfo[0];
 
-  const uint outputSize = boxes.inferDims.d[0];
-  const uint maskWidth = masks.inferDims.d[2];
-  const uint maskHeight = masks.inferDims.d[1];
+  size_t outputSize = output.inferDims.d[0];
+  size_t channelsSize = output.inferDims.d[1];
 
-  std::vector<NvDsInferInstanceMaskInfo> objects = decodeTensorYoloSeg((const float*) (boxes.buffer),
-      (const float*) (scores.buffer), (const float*) (classes.buffer), (const float*) (masks.buffer), outputSize, maskWidth,
-      maskHeight, networkInfo.width, networkInfo.height, detectionParams.perClassPreclusterThreshold);
+  std::vector<NvDsInferInstanceMaskInfo> objects = decodeTensorYoloSeg((const float*) (output.buffer), outputSize,
+      channelsSize, networkInfo.width, networkInfo.height, detectionParams.perClassPreclusterThreshold);
 
   objectList = objects;
 

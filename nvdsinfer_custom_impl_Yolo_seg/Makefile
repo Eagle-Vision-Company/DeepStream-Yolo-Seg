@@ -1,65 +1,48 @@
-################################################################################
-# Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-#
-# Edited by Marcos Luciano
-# https://www.github.com/marcoslucianops
-################################################################################
-
 CUDA_VER?=
 ifeq ($(CUDA_VER),)
 	$(error "CUDA_VER is not set")
 endif
 
-CC:= g++
+CXX:= g++
 NVCC:=/usr/local/cuda-$(CUDA_VER)/bin/nvcc
-
-CFLAGS:= -Wall -std=c++11 -shared -fPIC -Wno-error=deprecated-declarations
-CFLAGS+= -I/opt/nvidia/deepstream/deepstream/sources/includes -I/usr/local/cuda-$(CUDA_VER)/include
-
-CUFLAGS:= -I/opt/nvidia/deepstream/deepstream/sources/includes -I/usr/local/cuda-$(CUDA_VER)/include
-
-LIBS+= -L/usr/local/cuda-$(CUDA_VER)/lib64 -lcudart -lcublas -lstdc++fs
-LFLAGS:= -shared -Wl,--start-group $(LIBS) -Wl,--end-group
-
-INCS:= $(wildcard *.h)
-SRCFILES:= $(wildcard *.cpp)
-SRCFILES+= $(wildcard *.cu)
 
 TARGET_LIB:= libnvdsinfer_custom_impl_Yolo_seg.so
 
-TARGET_OBJS:= $(SRCFILES:.cpp=.o)
-TARGET_OBJS:= $(TARGET_OBJS:.cu=.o)
+CFLAGS:= -Wall -std=c++17 -shared -fPIC -Wno-error=deprecated-declarations
+
+CFLAGS+= -I/opt/nvidia/deepstream/deepstream/sources/includes -I/usr/local/cuda-$(CUDA_VER)/include
+CUFLAGS:= -I/opt/nvidia/deepstream/deepstream/sources/includes -I/usr/local/cuda-$(CUDA_VER)/include
+
+LIBS+= -L/usr/local/cuda-$(CUDA_VER)/lib64
+
+LFLAGS:= -shared -Wl,--start-group $(LIBS) -Wl,--end-group
+
+SRCS:= $(wildcard *.cpp)
+SRCS+= $(wildcard trt_plugins/*.cpp)
+SRCS+= $(wildcard trt_plugins/efficientNMSPlugin/*.cpp)
+SRCS+= $(wildcard trt_plugins/efficientNMSPlugin/*.cu)
+SRCS+= $(wildcard trt_plugins/roiAlignPlugin/*.cpp)
+SRCS+= $(wildcard trt_plugins/roiAlignPlugin/*.cu)
+
+INCS:= $(wildcard *.h)
+INCS+= $(wildcard trt_plugins/*.h)
+INCS+= $(wildcard trt_plugins/efficientNMSPlugin/*.h)
+INCS+= $(wildcard trt_plugins/efficientNMSPlugin/*.cuh)
+INCS+= $(wildcard trt_plugins/roiAlignPlugin/*.h)
+INCS+= $(wildcard trt_plugins/roiAlignPlugin/*.cuh)
+
+OBJS:= $(addsuffix .o, $(basename $(SRCS)))
 
 all: $(TARGET_LIB)
 
-%.o: %.cpp $(INCS) Makefile
-	$(CC) -c $(COMMON) -o $@ $(CFLAGS) $<
+%.o: %.cpp Makefile
+	$(CXX) -c -o $@ $(CFLAGS) $<
 
 %.o: %.cu $(INCS) Makefile
 	$(NVCC) -c -o $@ --compiler-options '-fPIC' $(CUFLAGS) $<
 
-$(TARGET_LIB) : $(TARGET_OBJS)
-	$(CC) -o $@  $(TARGET_OBJS) $(LFLAGS)
+$(TARGET_LIB) : $(OBJS)
+	$(CXX) -o $@ $(OBJS) $(LFLAGS)
 
 clean:
-	rm -rf $(TARGET_LIB)
-	rm -rf $(TARGET_OBJS)
-
+	rm -rf $(OBJS) $(TARGET_LIB)

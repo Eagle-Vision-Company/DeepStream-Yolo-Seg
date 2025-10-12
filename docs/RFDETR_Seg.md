@@ -1,16 +1,16 @@
-# YOLOv8-Seg usage
+# RF-DETR-Seg usage
 
 **NOTE**: The yaml file is not required.
 
 * [Convert model](#convert-model)
 * [Compile the lib](#compile-the-lib)
-* [Edit the config_infer_primary_yoloV8_seg file](#edit-the-config_infer_primary_yolov8_seg-file)
+* [Edit the config_infer_primary_rfdetr_seg file](#edit-the-config_infer_primary_rfdetr_seg-file)
 
 ##
 
 ### Convert model
 
-#### 1. Download the YOLOv8 repo and install the requirements
+#### 1. Download the RF-DETR repo and install the requirements
 
 ```
 git clone https://github.com/ultralytics/ultralytics.git
@@ -23,24 +23,24 @@ pip3 install onnx onnxslim onnxruntime
 
 #### 2. Copy conversor
 
-Copy the `export_yoloV8_seg.py` file from `DeepStream-Yolo-Seg/utils` directory to the `ultralytics` folder.
+Copy the `export_rfdetr_seg.py` file from `DeepStream-Yolo-Seg/utils` directory to the `ultralytics` folder.
 
 #### 3. Download the model
 
-Download the `pt` file from [YOLOv8](https://github.com/ultralytics/assets/releases/) releases (example for YOLOv8s-Seg)
+Download the `pt` file from [RF-DETR](https://github.com/roboflow/rf-detr) releases (example for RF-DETR-Seg-Preview)
 
 ```
-wget https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8s-seg.pt
+wget https://storage.googleapis.com/rfdetr/rf-detr-seg-preview.pt
 ```
 
 **NOTE**: You can use your custom model.
 
 #### 4. Convert model
 
-Generate the ONNX model file (example for YOLOv8s-Seg)
+Generate the ONNX model file (example for RF-DETR-Seg-Preview)
 
 ```
-python3 export_yoloV8_seg.py -w yolov8s-seg.pt --dynamic
+python3 export_rfdetr_seg.py -w rf-detr-seg-preview.pt --dynamic
 ```
 
 **NOTE**: Minimum detection confidence threshold (example for conf-threshold = 0.25)
@@ -149,16 +149,16 @@ make -C nvdsinfer_custom_impl_Yolo_seg clean && make -C nvdsinfer_custom_impl_Yo
 
 ##
 
-### Edit the config_infer_primary_yoloV8_seg file
+### Edit the config_infer_primary_rfdetr_seg file
 
-Edit the `config_infer_primary_yoloV8_seg.txt` file according to your model (example for YOLOv8s-Seg)
+Edit the `config_infer_primary_rfdetr_seg.txt` file according to your model (example for RF-DETR-Seg-Preview)
 
 ```
 [property]
 ...
-onnx-file=yolov8s-seg.onnx
+onnx-file=rf-detr-seg-preview.onnx
 ...
-num-detected-classes=80
+num-detected-classes=91
 ...
 parse-bbox-func-name=NvDsInferParseYoloSeg
 ...
@@ -174,12 +174,11 @@ segmentation-threshold=0.5
 ...
 ```
 
-**NOTE**: The **YOLOv8-Seg** resizes the input with center padding. To get better accuracy, use
+**NOTE**: The **RF-DETR-Seg** do not resize the input with padding. To get better accuracy, use
 
 ```
 [property]
 ...
-maintain-aspect-ratio=1
-symmetric-padding=1
+maintain-aspect-ratio=0
 ...
 ```

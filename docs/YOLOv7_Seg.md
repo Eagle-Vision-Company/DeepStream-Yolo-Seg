@@ -3,6 +3,7 @@
 **NOTE**: The yaml file is not required.
 
 * [Convert model](#convert-model)
+* [Compile the lib](#compile-the-lib)
 * [Edit the config_infer_primary_yoloV7_seg file](#edit-the-config_infer_primary_yolov7_seg-file)
 
 ##
@@ -15,7 +16,7 @@
 git clone -b u7 https://github.com/WongKinYiu/yolov7
 cd yolov7/seg
 pip3 install -r requirements.txt
-pip3 install onnx onnxsim onnxruntime
+pip3 install onnx onnxslim onnxruntime
 ```
 
 **NOTE**: It is recommended to use Python virtualenv.
@@ -34,11 +35,7 @@ wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7-seg.pt
 
 **NOTE**: You can use your custom model.
 
-#### 4. Reparameterize your model (for custom models)
-
-Custom YOLOv7 models cannot be directly converted to engine file. Therefore, you will have to reparameterize your model using the code [here](https://github.com/WongKinYiu/yolov7/blob/main/tools/reparameterization.ipynb). Make sure to convert your custom checkpoints in YOLOv7 repository, and then save your reparmeterized checkpoints for conversion in the next step.
-
-#### 5. Convert model
+#### 4. Convert model
 
 Generate the ONNX model file (example for YOLOv7-Seg)
 
@@ -46,24 +43,24 @@ Generate the ONNX model file (example for YOLOv7-Seg)
 python3 export_yoloV7_seg.py -w yolov7-seg.pt --dynamic
 ```
 
-**NOTE**: Confidence threshold (example for conf-thres = 0.25)
+**NOTE**: Minimum detection confidence threshold (example for conf-threshold = 0.25)
 
 The minimum detection confidence threshold is configured in the ONNX exporter file. The `pre-cluster-threshold` should be >= the value used in the ONNX model.
 
 ```
---conf-thres 0.25
+--conf-threshold 0.25
 ```
 
-**NOTE**: NMS IoU threshold (example for iou-thres = 0.45)
+**NOTE**: NMS IoU threshold (example for iou-threshold = 0.45)
 
 ```
---iou-thres 0.45
+--iou-threshold 0.45
 ```
 
-**NOTE**: Maximum detections (example for max-det = 100)
+**NOTE**: Maximum number of output detections (example for max-detections = 300)
 
 ```
---max-det 100
+--max-detections 300
 ```
 
 **NOTE**: To convert a P6 model
@@ -111,9 +108,50 @@ or
 --batch 4
 ```
 
-#### 6. Copy generated files
+#### 5. Copy generated files
 
 Copy the generated ONNX model file and labels.txt file (if generated) to the `DeepStream-Yolo-Seg` folder.
+
+##
+
+### Compile the lib
+
+1. Open the `DeepStream-Yolo-Seg` folder and compile the lib
+
+2. Set the `CUDA_VER` according to your DeepStream version
+
+```
+export CUDA_VER=XY.Z
+```
+
+* x86 platform
+
+  ```
+  DeepStream 8.0 = 12.8
+  DeepStream 7.1 = 12.6
+  DeepStream 7.0 / 6.4 = 12.2
+  DeepStream 6.3 = 12.1
+  DeepStream 6.2 = 11.8
+  DeepStream 6.1.1 = 11.7
+  DeepStream 6.1 = 11.6
+  DeepStream 6.0.1 / 6.0 = 11.4
+  ```
+
+* Jetson platform
+
+  ```
+  DeepStream 8.0 = 13.0
+  DeepStream 7.1 = 12.6
+  DeepStream 7.0 / 6.4 = 12.2
+  DeepStream 6.3 / 6.2 / 6.1.1 / 6.1 = 11.4
+  DeepStream 6.0.1 / 6.0 = 10.2
+  ```
+
+3. Make the lib
+
+```
+make -C nvdsinfer_custom_impl_Yolo_seg clean && make -C nvdsinfer_custom_impl_Yolo_seg
+```
 
 ##
 
@@ -125,7 +163,10 @@ Edit the `config_infer_primary_yoloV7_seg.txt` file according to your model (exa
 [property]
 ...
 onnx-file=yolov7-seg.onnx
-model-engine-file=yolov7-seg.onnx_b1_gpu0_fp32.engine
+...
+num-detected-classes=80
+...
+parse-bbox-func-name=NvDsInferParseYoloSeg
 ...
 ```
 

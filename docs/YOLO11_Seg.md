@@ -1,16 +1,16 @@
-# YOLOv8-Seg usage
+# YOLO11-Seg usage
 
 **NOTE**: The yaml file is not required.
 
 * [Convert model](#convert-model)
 * [Compile the lib](#compile-the-lib)
-* [Edit the config_infer_primary_yoloV8_seg file](#edit-the-config_infer_primary_yolov8_seg-file)
+* [Edit the config_infer_primary_yolo11_seg file](#edit-the-config_infer_primary_yolo11_seg-file)
 
 ##
 
 ### Convert model
 
-#### 1. Download the YOLOv8 repo and install the requirements
+#### 1. Download the YOLO11 repo and install the requirements
 
 ```
 git clone https://github.com/ultralytics/ultralytics.git
@@ -23,24 +23,24 @@ pip3 install onnx onnxslim onnxruntime
 
 #### 2. Copy conversor
 
-Copy the `export_yoloV8_seg.py` file from `DeepStream-Yolo-Seg/utils` directory to the `ultralytics` folder.
+Copy the `export_yolo11_seg.py` file from `DeepStream-Yolo-Seg/utils` directory to the `ultralytics` folder.
 
 #### 3. Download the model
 
-Download the `pt` file from [YOLOv8](https://github.com/ultralytics/assets/releases/) releases (example for YOLOv8s-Seg)
+Download the `pt` file from [YOLO11](https://github.com/ultralytics/assets/releases/) releases (example for YOLO11s-Seg)
 
 ```
-wget https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8s-seg.pt
+wget https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11s-seg.pt
 ```
 
 **NOTE**: You can use your custom model.
 
 #### 4. Convert model
 
-Generate the ONNX model file (example for YOLOv8s-Seg)
+Generate the ONNX model file (example for YOLO11s-Seg)
 
 ```
-python3 export_yoloV8_seg.py -w yolov8s-seg.pt --dynamic
+python3 export_yolo11_seg.py -w yolo11s-seg.pt --dynamic
 ```
 
 **NOTE**: Minimum detection confidence threshold (example for conf-threshold = 0.25)
@@ -149,14 +149,14 @@ make -C nvdsinfer_custom_impl_Yolo_seg clean && make -C nvdsinfer_custom_impl_Yo
 
 ##
 
-### Edit the config_infer_primary_yoloV8_seg file
+### Edit the config_infer_primary_yolo11_seg file
 
-Edit the `config_infer_primary_yoloV8_seg.txt` file according to your model (example for YOLOv8s-Seg)
+Edit the `config_infer_primary_yolo11_seg.txt` file according to your model (example for YOLO11s-Seg)
 
 ```
 [property]
 ...
-onnx-file=yolov8s-seg.onnx
+onnx-file=yolo11s-seg.onnx
 ...
 num-detected-classes=80
 ...
@@ -174,7 +174,7 @@ segmentation-threshold=0.5
 ...
 ```
 
-**NOTE**: The **YOLOv8-Seg** resizes the input with center padding. To get better accuracy, use
+**NOTE**: The **YOLO11-Seg** resizes the input with center padding. To get better accuracy, use
 
 ```
 [property]
