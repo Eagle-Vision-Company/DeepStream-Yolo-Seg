@@ -24,6 +24,8 @@ ifeq ($(shell expr $(CUDA_VER_NUM) \>= 128),1)
   CUDA_ARCH+= 100 103 110 120
 endif
 
+# CUDA_ARCH:= 75
+
 GENCODE_FLAGS:= $(foreach a,$(CUDA_ARCH),-gencode arch=compute_$(a),code=sm_$(a) \
 				-gencode arch=compute_$(a),code=compute_$(a))
 
